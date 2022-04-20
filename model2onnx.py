@@ -55,8 +55,8 @@ def parse_args(parser):
                         help='data_dir')
     parser.add_argument('--style_type', type=str, default='cartoon',
                         help='style_type')
-    parser.add_argument('--generator_path', type=str, default='cartoon', default='/content/DualStyleGAN/checkpoint/cartoon/generator.pt',
-                        help='style_type')
+    parser.add_argument('--generator_path', type=str, default='/content/DualStyleGAN/checkpoint/cartoon/generator.pt',
+                        help='full path to the Pretrained Dual stylegan generator')
     parser.add_argument('--device', type=str, default='cpu',
                         help='DEVICE ')
     parser.add_argument('--input_image', type=str, default='/content/DualStyleGAN/data/content/unsplash-rDEOVtE7vOs.jpg',
@@ -94,7 +94,8 @@ class pSpEncoder(nn.Module):
         return img_rec, instyle
 
 class StyleTransfer(nn.Module):
-    def __init__(self, generator, args):
+    def __init__(self, args):
+        super().__init__()
         # load DualStyleGAN model
         generator = DualStyleGAN(1024, 512, 8, 2, res_index=6)
         ckpt = torch.load(args.generator_path, map_location=lambda storage, loc: storage)
@@ -107,6 +108,7 @@ class StyleTransfer(nn.Module):
         self.exstyler = generator.generator.style
         self.generator = generator
         self.exstyles = np.load(os.path.join(args.model_dir, args.style_type, MODEL_PATHS[args.style_type+'-S']["name"]), allow_pickle='TRUE').item()
+        self.device = args.device
    
     def forward(self, instyle, style_id=21, interp_weights=[0.6]*7+[1]*11):
         # pre-trained style + extracted style of input image
@@ -192,16 +194,18 @@ def main():
     # # latent[0] for both color and structrue transfer and latent[1] for only structrue transfer
     # latent[1,7:18] = latent[0,7:18]
     # print(latent.reshape(latent.shape[0]*latent.shape[1], latent.shape[2]).shape)
-    input_style = torch.rand((36, 512)).float().to(device)
+    input_style = torch.rand((1, 18, 512)).float().to(device)
     
-    model = StyleTransfer()
+    model = StyleTransfer(args)
     opset_version = 11
     model.eval()
+    model(input_style)
     torch.onnx.export(model, input_style, args.output+"/"+"style_transfer.onnx",
                         opset_version=opset_version,
                         input_names=["instyle"],
                         output_names=["style_latent"],
                         do_constant_folding=True,
+                        operator_export_type=torch.onnx.OperatorExportTypes.ONNX_ATEN, 
     )
     
     

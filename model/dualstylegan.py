@@ -181,7 +181,7 @@ class DualStyleGAN(nn.Module):
                               (1-interp_weights[i+2]) * latent[:, i + 2], skip)
             else:
                 skip = to_rgb(out, latent[:, i + 2], skip)
-            i += 2
+            i = i + 2
             if i > self.res_index and return_feat:
                 return out, skip
 
